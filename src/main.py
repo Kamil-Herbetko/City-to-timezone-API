@@ -1,25 +1,35 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+import uvicorn
+from motor.motor_asyncio import AsyncIOMotorClient
+from settings import settings
+
+from apps.cityToTimezone.routers import router as cttt_router
 
 app = FastAPI()
 
 
-class Item(BaseModel):
-    name: str
-    price: float
-    is_offer: bool | None = None
+@app.on_event("startup")
+async def startup_db_client():
+    app.mongodb_client = AsyncIOMotorClient(
+        settings.DB_URI,
+        tls=True,
+        tlsCertificateKeyFile=settings.DB_CERTIFICATE_PATH
+    )
+    app.mongodb = app.mongodb_client[settings.DB_NAME]
 
 
-@app.get("/")
-async def read_root():
-    return {"Hello": "World"}
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    app.mongodb_client.close()
 
 
-@app.get("/items/{item_id}")
-async def read_item(item_id: int, q: str | None = None):
-    return {"item_id": item_id, "q": q}
+app.include_router(cttt_router, tags=["cityToTimezone"], prefix="/cityToTimezone")
 
 
-@app.put("/items/{item_id}")
-async def update_item(item_id: int, item: Item):
-    return {"item_name": item.name, "item_id": item_id}
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host=settings.HOST,
+        reload=settings.DEBUG_MODE,
+        port=settings.PORT,
+    )

@@ -1,0 +1,10 @@
+# Venv configuration files
+bin
+include
+lib*
+*.cfg
+
+# Other configuration files
+.env
+*.pem
+*pycache*
